@@ -1,0 +1,49 @@
+{
+  "name": "@pwddd/skills-scanner",
+  "version": "1.0.1",
+  "description": "OpenClaw Skills security scanner plugin - detect malicious code, data exfiltration, and prompt injection",
+  "type": "module",
+  "main": "./index.ts",
+  "author": "pwddd",
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "security",
+    "scanner",
+    "skills",
+    "malware-detection"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/openclaw.git",
+    "directory": "extensions/skills-scanner"
+  },
+  "bugs": {
+    "url": "https://github.com/openclaw/openclaw/issues"
+  },
+  "homepage": "https://github.com/openclaw/openclaw/tree/main/extensions/skills-scanner#readme",
+  "files": [
+    "index.ts",
+    "openclaw.plugin.json",
+    "README.md",
+    "src/**/*.ts",
+    "skills/**/*"
+  ],
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.9"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

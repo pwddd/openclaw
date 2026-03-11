@@ -1,0 +1,60 @@
+{
+  "id": "skills-scanner",
+  "name": "Skills Scanner",
+  "description": "Security scanner for OpenClaw Skills to detect potential threats",
+  "version": "1.0.1",
+  "author": "OpenClaw",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiUrl": {
+        "type": "string",
+        "description": "Scanner API service URL",
+        "default": "http://localhost:8000"
+      },
+      "scanDirs": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of directories to scan for Skills",
+        "default": []
+      },
+      "behavioral": {
+        "type": "boolean",
+        "description": "Enable behavioral analysis (slower but more accurate)",
+        "default": false
+      },
+      "useLLM": {
+        "type": "boolean",
+        "description": "Enable LLM-based semantic analysis",
+        "default": false
+      },
+      "policy": {
+        "type": "string",
+        "enum": ["strict", "balanced", "permissive"],
+        "description": "Scanning policy: strict (more false positives) / balanced (recommended) / permissive (may miss threats)",
+        "default": "balanced"
+      },
+      "preInstallScan": {
+        "type": "string",
+        "enum": ["on", "off"],
+        "description": "Enable pre-installation scanning (monitors directories for new Skills)",
+        "default": "on"
+      },
+      "onUnsafe": {
+        "type": "string",
+        "enum": ["quarantine", "delete", "warn"],
+        "description": "Action to take when unsafe Skill is detected: quarantine (recommended) / delete / warn",
+        "default": "quarantine"
+      },
+      "injectSecurityGuidance": {
+        "type": "boolean",
+        "description": "Inject Skills security guidance into system prompt (requires AI to scan before installing Skills)",
+        "default": true
+      }
+    }
+  }
+}

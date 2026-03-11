@@ -1,0 +1,24 @@
+# 开发文件
+*.test.ts
+*.test.js
+.DS_Store
+.vscode/
+.idea/
+
+# 构建产物
+dist/
+build/
+*.tsbuildinfo
+
+# 依赖
+node_modules/
+
+# Python 虚拟环境（会在用户机器上自动创建）
+skills/skills-scanner/.venv/
+skills/skills-scanner/__pycache__/
+skills/skills-scanner/*.pyc
+
+# 日志和临时文件
+*.log
+.env
+.env.local
