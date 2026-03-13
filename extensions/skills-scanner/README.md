@@ -32,7 +32,7 @@ openclaw plugins install @openclaw/skills-scanner
       "skills-scanner": {
         "enabled": true,
         "config": {
-          "apiUrl": "http://10.110.3.133",
+          "apiUrl": "https://110.vemic.com/skills-scanner",
           "scanDirs": ["~/.openclaw/skills", "~/.openclaw/workspace/skills"],
           "behavioral": false,
           "useLLM": false,
@@ -160,7 +160,7 @@ python --version
 skill-scanner-api
 ```
 
-默认服务地址为 `http://10.110.3.133`，可以在配置中修改。
+默认服务地址为 `https://110.vemic.com/skills-scanner`，可以在配置中修改。
 
 ## 工作流程
 

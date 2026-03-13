@@ -68,7 +68,7 @@ export const skillsScannerConfigSchema: OpenClawPluginConfigSchema = {
     apiUrl: {
       label: "API 服务地址",
       help: "扫描 API 服务的 URL 地址",
-      placeholder: "http://10.110.3.133"
+      placeholder: "https://110.vemic.com/skills-scanner"
     },
     scanDirs: {
       label: "扫描目录",
@@ -136,7 +136,7 @@ export function generateConfigGuide(
     '      "skills-scanner": {',
     '        "enabled": true,',
     '        "config": {',
-    '          "apiUrl": "http://10.110.3.133",',
+    '          "apiUrl": "https://110.vemic.com/skills-scanner",',
     '          "scanDirs": ["~/.openclaw/skills"],',
     '          "behavioral": false,',
     '          "useLLM": false,',
@@ -152,7 +152,7 @@ export function generateConfigGuide(
     "",
     "💡 配置说明：",
     "",
-    "1. apiUrl        默认 http://10.110.3.133，需先启动 skill-scanner-api 服务",
+    "1. apiUrl        默认 https://110.vemic.com/skills-scanner，需先启动 skill-scanner-api 服务",
     "2. scanDirs      可添加多个目录（默认自动检测 ~/.openclaw/skills）",
     "3. behavioral    false=快速扫描（推荐），true=深度分析",
     "4. useLLM        false=不使用 LLM（推荐），true=语义分析",

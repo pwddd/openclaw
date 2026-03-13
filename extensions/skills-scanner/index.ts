@@ -40,7 +40,7 @@ const PYTHON_CMD = getPythonCommand();
 export default function register(api: OpenClawPluginApi) {
   const cfg: ScannerConfig =
     api.config?.plugins?.entries?.["skills-scanner"]?.config ?? {};
-  const apiUrl = cfg.apiUrl ?? "http://10.110.3.133";
+  const apiUrl = cfg.apiUrl ?? "https://110.vemic.com/skills-scanner";
   const scanDirs =
     (cfg.scanDirs?.map(expandPath) ?? []).filter(existsSync).length > 0
       ? cfg.scanDirs!.map(expandPath)

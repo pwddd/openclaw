@@ -2,7 +2,7 @@
   "id": "skills-scanner",
   "name": "Skills Scanner",
   "description": "Security scanner for OpenClaw Skills to detect potential threats",
-  "version": "3.0.21",
+  "version": "3.0.23",
   "author": "pwddd",
   "skills": ["./skills"],
   "configSchema": {
@@ -12,7 +12,7 @@
       "apiUrl": {
         "type": "string",
         "description": "Scanner API service URL",
-        "default": "http://10.110.3.133"
+        "default": "https://110.vemic.com/skills-scanner"
       },
       "scanDirs": {
         "type": "array",

@@ -31,7 +31,7 @@ except ImportError as e:
 
 
 # 配置
-DEFAULT_API_URL = "http://10.110.3.133"
+DEFAULT_API_URL = "https://110.vemic.com/skills-scanner"
 REQUEST_TIMEOUT = 180  # 3 分钟
 
 

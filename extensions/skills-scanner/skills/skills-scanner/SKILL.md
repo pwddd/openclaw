@@ -150,7 +150,7 @@ AI: 好的，让我先更新 skills-scanner 插件...
 
 **检查方法**：
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 health
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner health
 ```
 
 **处理规则**：
@@ -167,7 +167,7 @@ python3 {baseDir}/scan.py --api-url http://10.110.3.133 health
      
      如需启用安全扫描，请：
      1. 启动 skill-scanner-api 服务
-     2. 确认服务地址配置正确（当前: http://10.110.3.133）
+     2. 确认服务地址配置正确（当前: https://110.vemic.com/skills-scanner）
      3. 重新执行安装操作
      ```
    - **不要阻止用户的操作**（如安装 Skill）
@@ -478,7 +478,7 @@ python -m pip install --user --quiet "requests>=2.31.0"
     "entries": {
       "skills-scanner": {
         "config": {
-          "apiUrl": "http://10.110.3.133"
+          "apiUrl": "https://110.vemic.com/skills-scanner"
         }
       }
     }
@@ -489,7 +489,7 @@ python -m pip install --user --quiet "requests>=2.31.0"
 或直接调用时使用 `--api-url` 参数：
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <路径>
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner scan <路径>
 ```
 
 ---
@@ -613,7 +613,7 @@ AI: 好的，让我先扫描一下这个 skill 的安全性...
 #### 示例 2：详细检查 PDF Skill
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 clawhub https://clawhub.ai/steipete/nano-pdf --detailed
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner clawhub https://clawhub.ai/steipete/nano-pdf --detailed
 ```
 
 **用户对话**：
@@ -636,7 +636,7 @@ AI: 好的，我会进行详细扫描...
 #### 示例 3：深度扫描可疑 Skill
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 clawhub https://clawhub.ai/username/suspicious-skill --detailed --behavioral --policy strict
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner clawhub https://clawhub.ai/username/suspicious-skill --detailed --behavioral --policy strict
 ```
 
 **用户对话**：
@@ -659,7 +659,7 @@ AI: 明白，我会使用严格模式进行深度扫描...
 #### 示例 4：包含 VirusTotal 扫描结果
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 clawhub https://clawhub.ai/username/project --detailed
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner clawhub https://clawhub.ai/username/project --detailed
 ```
 
 **用户对话（未检测到威胁）**：
@@ -772,25 +772,25 @@ https://clawhub.ai/<username>/<project>
 ### 基础扫描（推荐，速度快）
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <skill路径>
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner scan <skill路径>
 ```
 
 ### 详细模式（显示所有发现）
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <skill路径> --detailed
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner scan <skill路径> --detailed
 ```
 
 ### 深度扫描（加入行为分析）
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <skill路径> --detailed --behavioral
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner scan <skill路径> --detailed --behavioral
 ```
 
 ### 最强扫描（加入 LLM 语义分析）
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <skill路径> --detailed --behavioral --llm
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner scan <skill路径> --detailed --behavioral --llm
 ```
 
 ---
@@ -802,31 +802,32 @@ python3 {baseDir}/scan.py --api-url http://10.110.3.133 scan <skill路径> --det
 ### 扫描指定目录下的所有 Skills
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch <目录路径>
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner batch <目录路径>
 ```
 
 ### 递归扫描（含子目录）
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch <目录路径> --recursive
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner batch <目录路径> --recursive
 ```
 
 ### 批量扫描并输出 JSON 报告
 
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch <目录路径> --detailed --json /tmp/scan-report.json
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner batch <目录路径> --detailed --json /tmp/scan-report.json
+```
 ```
 
 ### 常用目录示例
 
 扫描 OpenClaw 默认 skills 目录：
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch ~/.openclaw/skills
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner batch ~/.openclaw/skills
 ```
 
 扫描 workspace skills：
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch ~/.openclaw/workspace/skills --recursive
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner batch ~/.openclaw/workspace/skills --recursive
 ```
 
 ---
@@ -835,8 +836,10 @@ python3 {baseDir}/scan.py --api-url http://10.110.3.133 batch ~/.openclaw/worksp
 
 检查 API 服务是否运行：
 
+### 健康检查
+
 ```bash
-python3 {baseDir}/scan.py --api-url http://10.110.3.133 health
+python3 {baseDir}/scan.py --api-url https://110.vemic.com/skills-scanner health
 ```
 
 ---
@@ -1038,7 +1041,7 @@ AI: 好的，让我先更新扫描插件...
 - VirusTotal 有 API 调用频率限制（免费版：4 次/分钟，付费版更高）。
 - 退出码 `0` 表示安全，`1` 表示存在问题（便于 CI/CD 集成）。
 - `{baseDir}` 占位符会自动替换为 Skill 的安装目录。
-- 如果你配置了非默认的 API URL（如 `http://10.110.3.133`），请在命令中使用 `--api-url` 参数指定你的 URL。
+- 如果你配置了非默认的 API URL（如 `https://110.vemic.com/skills-scanner`），请在命令中使用 `--api-url` 参数指定你的 URL。
 
 ### VirusTotal 特别说明
 

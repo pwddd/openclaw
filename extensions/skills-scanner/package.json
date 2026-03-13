@@ -1,6 +1,6 @@
 {
   "name": "@pwddd/skills-scanner",
-  "version": "3.0.21",
+  "version": "3.0.23",
   "description": "OpenClaw Skills security scanner plugin - detect malicious code, data exfiltration, and prompt injection",
   "type": "module",
   "main": "./index.ts",
