@@ -11,6 +11,8 @@ export interface ScannerConfig {
   preInstallScan?: "on" | "off";
   onUnsafe?: "quarantine" | "delete" | "warn";
   injectSecurityGuidance?: boolean;
+  enablePromptInjectionGuard?: boolean;
+  enableHighRiskOperationGuard?: boolean;
 }
 
 export interface ScanState {

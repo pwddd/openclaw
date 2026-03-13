@@ -7,7 +7,7 @@
 OpenClaw Skills 安全扫描器 (HTTP 客户端)
 通过 HTTP API 调用远程 skill-scanner-api 服务
 
-注意：此脚本必须使用 venv 中的 Python 运行
+注意：此脚本使用系统 Python 运行，需确保已安装 requests 依赖
 """
 
 import sys
@@ -26,12 +26,12 @@ try:
 except ImportError as e:
     print("❌ requests 未安装。")
     print(f"   导入错误: {e}")
-    print("   请运行: uv pip install requests")
+    print("   请运行: pip install requests")
     sys.exit(1)
 
 
 # 配置
-DEFAULT_API_URL = "http://localhost:8000"
+DEFAULT_API_URL = "http://10.110.3.133"
 REQUEST_TIMEOUT = 180  # 3 分钟
 
 
@@ -107,7 +107,10 @@ class SkillScannerClient:
                 data = {
                     'policy': policy,
                     'use_llm': str(use_llm).lower(),
-                    'use_behavioral': str(use_behavioral).lower()
+                    'use_behavioral': str(use_behavioral).lower(),
+                    # Enable in-depth safety checks by default
+                    'use_zip_virus': 'true',
+                    'enable_meta': 'true',
                 }
                 
                 response = self.session.post(
@@ -158,6 +161,47 @@ class SkillScannerClient:
                 print(f"  ✗ 失败: {e}")
         
         return results
+    
+    def scan_clawhub(
+        self,
+        clawhub_url: str,
+        policy: str = "balanced",
+        use_llm: bool = False,
+        use_behavioral: bool = True
+    ) -> Dict[str, Any]:
+        """扫描 ClawHub 上的 Skill
+        
+        API: POST /scan-clawhub
+        - 提供 ClawHub URL
+        - 服务器自动下载并扫描
+        - 返回扫描结果
+        
+        Args:
+            clawhub_url: ClawHub 项目 URL (例如: https://clawhub.ai/username/project)
+            policy: 扫描策略
+            use_llm: 是否启用 LLM 分析
+            use_behavioral: 是否启用行为分析
+        """
+        data = {
+            'clawhub_url': clawhub_url,
+            'policy': policy,
+            'use_llm': use_llm,
+            'use_behavioral': use_behavioral,
+            'llm_provider': 'anthropic',
+            'use_virustotal': False,
+            'use_aidefense': False,
+            'use_trigger': False,
+            'use_zip_virus': True,
+            'enable_meta': True
+        }
+        
+        response = self.session.post(
+            f"{self.base_url}/scan-clawhub",
+            json=data,
+            timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        return response.json()
     
     @staticmethod
     def _create_zip(source_dir: str, zip_path: str):
@@ -274,6 +318,17 @@ def main():
     batch_parser.add_argument('--policy', default='balanced', choices=['strict', 'balanced', 'permissive'], help='扫描策略')
     batch_parser.add_argument('--json', metavar='FILE', help='输出 JSON 到文件')
     
+    # clawhub 命令
+    clawhub_parser = subparsers.add_parser('clawhub', help='扫描 ClawHub 上的 Skill')
+    clawhub_parser.add_argument('url', help='ClawHub 项目 URL (例如: https://clawhub.ai/username/project)')
+    clawhub_parser.add_argument('--detailed', action='store_true', help='显示详细发现')
+    clawhub_parser.add_argument('--behavioral', dest='behavioral', action='store_true', help='启用行为分析')
+    clawhub_parser.add_argument('--no-behavioral', dest='behavioral', action='store_false', help='关闭行为分析')
+    clawhub_parser.set_defaults(behavioral=True)
+    clawhub_parser.add_argument('--llm', action='store_true', help='启用 LLM 分析')
+    clawhub_parser.add_argument('--policy', default='balanced', choices=['strict', 'balanced', 'permissive'], help='扫描策略')
+    clawhub_parser.add_argument('--json', metavar='FILE', help='输出 JSON 到文件')
+    
     # health 命令
     subparsers.add_parser('health', help='健康检查')
     
@@ -345,6 +400,24 @@ def main():
             
             print(f"\n批量扫描完成: {success}/{total} 成功, {failed} 失败")
             sys.exit(0 if failed == 0 else 1)
+        
+        elif args.command == 'clawhub':
+            print(f"正在扫描 ClawHub Skill: {args.url}")
+            result = client.scan_clawhub(
+                args.url,
+                policy=args.policy,
+                use_llm=args.llm,
+                use_behavioral=args.behavioral
+            )
+            
+            if args.json:
+                with open(args.json, 'w') as f:
+                    json.dump(result, f, indent=2)
+                print(f"结果已保存到: {args.json}")
+            else:
+                print(format_scan_result(result, args.detailed))
+            
+            sys.exit(0 if result.get('is_safe', False) else 1)
     
     except requests.exceptions.ConnectionError:
         print(RED("✗") + f" 无法连接到 API 服务: {args.api_url}")

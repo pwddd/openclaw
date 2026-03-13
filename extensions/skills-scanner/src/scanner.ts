@@ -9,12 +9,16 @@ import type { ScanOptions, ScanResult } from "./types.js";
 const execAsync = promisify(exec);
 
 export async function runScan(
-  venvPython: string,
+  pythonCmd: string | null,
   scanScript: string,
-  mode: "scan" | "batch",
+  mode: "scan" | "batch" | "clawhub",
   target: string,
   opts: ScanOptions = {}
 ): Promise<ScanResult> {
+  if (!pythonCmd) {
+    return { exitCode: 1, output: "Python is not available on this host" };
+  }
+
   const args = [mode, target];
   if (opts.detailed) args.push("--detailed");
   if (opts.behavioral) args.push("--behavioral");
@@ -24,7 +28,7 @@ export async function runScan(
   if (opts.jsonOut) args.push("--json", opts.jsonOut);
   if (opts.apiUrl) args.unshift("--api-url", opts.apiUrl);
 
-  const cmd = `"${venvPython}" "${scanScript}" ${args.map((a) => `"${a}"`).join(" ")}`;
+  const cmd = `"${pythonCmd}" "${scanScript}" ${args.map((a) => `"${a}"`).join(" ")}`;
 
   try {
     const env = { ...process.env };

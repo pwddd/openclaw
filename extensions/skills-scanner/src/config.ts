@@ -68,7 +68,7 @@ export const skillsScannerConfigSchema: OpenClawPluginConfigSchema = {
     apiUrl: {
       label: "API 服务地址",
       help: "扫描 API 服务的 URL 地址",
-      placeholder: "http://localhost:8000"
+      placeholder: "http://10.110.3.133"
     },
     scanDirs: {
       label: "扫描目录",
@@ -92,7 +92,7 @@ export const skillsScannerConfigSchema: OpenClawPluginConfigSchema = {
     },
     onUnsafe: {
       label: "不安全处理",
-      help: "quarantine=隔离（推荐）/ delete=删除 / warn=仅警告"
+      help: "warn=仅警告（推荐）/ quarantine=隔离 / delete=删除"
     }
   }
 };
@@ -136,13 +136,13 @@ export function generateConfigGuide(
     '      "skills-scanner": {',
     '        "enabled": true,',
     '        "config": {',
-    '          "apiUrl": "http://localhost:8000",',
+    '          "apiUrl": "http://10.110.3.133",',
     '          "scanDirs": ["~/.openclaw/skills"],',
     '          "behavioral": false,',
     '          "useLLM": false,',
     '          "policy": "balanced",',
     '          "preInstallScan": "on",',
-    '          "onUnsafe": "quarantine"',
+    '          "onUnsafe": "warn"',
     '        }',
     '      }',
     '    }',
@@ -152,17 +152,17 @@ export function generateConfigGuide(
     "",
     "💡 配置说明：",
     "",
-    "1. apiUrl        默认 http://localhost:8000，需先启动 skill-scanner-api 服务",
+    "1. apiUrl        默认 http://10.110.3.133，需先启动 skill-scanner-api 服务",
     "2. scanDirs      可添加多个目录（默认自动检测 ~/.openclaw/skills）",
     "3. behavioral    false=快速扫描（推荐），true=深度分析",
     "4. useLLM        false=不使用 LLM（推荐），true=语义分析",
     "5. policy        strict / balanced（推荐）/ permissive",
     "6. preInstallScan on=监听新 Skill 并自动扫描（推荐），off=禁用",
-    "7. onUnsafe      quarantine=隔离（推荐），delete=删除，warn=仅警告",
+    "7. onUnsafe      warn=仅警告（推荐），quarantine=隔离，delete=删除",
     "",
     "🚀 快速开始：",
     "  编辑配置文件后重启 Gateway",
-    "  /skills-scanner status",
+    "  /skills-scanner health",
     "",
     "提示：此消息只在首次运行时显示。",
     "════════════════════════════════════════════════════════════════",

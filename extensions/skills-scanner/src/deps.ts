@@ -2,72 +2,76 @@
  * Dependency management module
  */
 
-import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { execSync, exec } from "node:child_process";
 import { promisify } from "node:util";
-import { exec } from "node:child_process";
-import { join } from "node:path";
 
 const execAsync = promisify(exec);
 
-export function hasUv(): boolean {
+function detectPythonCommand(): string | null {
   try {
-    execSync("uv --version", { stdio: "ignore" });
+    execSync("python3 --version", { stdio: "ignore" });
+    return "python3";
+  } catch {
+    try {
+      execSync("python --version", { stdio: "ignore" });
+      return "python";
+    } catch {
+      return null;
+    }
+  }
+}
+
+export const getPythonCommand = (): string | null => detectPythonCommand();
+export const hasPython = (): boolean => detectPythonCommand() !== null;
+
+export function isRequestsInstalled(pythonCmd: string | null): boolean {
+  if (!pythonCmd) return false;
+  try {
+    execSync(`${pythonCmd} -c "import requests"`, { stdio: "ignore" });
     return true;
   } catch {
     return false;
   }
 }
 
-export function isVenvReady(venvPython: string): boolean {
-  if (!existsSync(venvPython)) return false;
+export const isPythonReady = (pythonCmd: string | null): boolean =>
+  hasPython() && isRequestsInstalled(pythonCmd);
 
-  try {
-    execSync(`"${venvPython}" -c "import requests"`, { stdio: "ignore" });
-    return true;
-  } catch {
+export async function ensureDeps(pythonCmd: string | null, logger: any): Promise<boolean> {
+  const resolvedPython = pythonCmd ?? getPythonCommand();
+
+  if (!resolvedPython) {
+    logger.error("[skills-scanner] Python not found. Please install Python 3.10+:");
+    logger.error("[skills-scanner]   - macOS: brew install python3");
+    logger.error("[skills-scanner]   - Linux: apt-get install python3 python3-pip");
+    logger.error("[skills-scanner]   - Windows: https://www.python.org/downloads/");
     return false;
   }
-}
 
-export async function ensureDeps(
-  skillDir: string,
-  venvPython: string,
-  logger: any
-): Promise<boolean> {
-  if (isVenvReady(venvPython)) {
+  if (isRequestsInstalled(resolvedPython)) {
     logger.info("[skills-scanner] Python dependencies ready (requests installed)");
     return true;
   }
 
-  if (!hasUv()) {
-    logger.warn(
-      "[skills-scanner] uv not installed: brew install uv or curl -LsSf https://astral.sh/uv/install.sh | sh"
-    );
-    return false;
-  }
-
-  logger.info("[skills-scanner] Installing Python dependencies...");
+  logger.info(`[skills-scanner] Installing requests package using ${resolvedPython}...`);
 
   try {
-    const venvDir = join(skillDir, ".venv");
+    await execAsync(`${resolvedPython} -m pip install --user --quiet "requests>=2.31.0"`, {
+      timeout: 120000,
+    });
 
-    if (existsSync(venvDir)) {
-      logger.info("[skills-scanner] Cleaning old virtual environment...");
-      rmSync(venvDir, { recursive: true, force: true });
+    if (isRequestsInstalled(resolvedPython)) {
+      logger.info("[skills-scanner] Dependencies installed successfully");
+      return true;
+    } else {
+      throw new Error("requests package not found after installation");
     }
-
-    await execAsync(`uv venv "${venvDir}" --python 3.10`);
-    logger.info("[skills-scanner] Virtual environment created");
-
-    logger.info("[skills-scanner] Installing requests...");
-    await execAsync(`uv pip install --python "${venvPython}" requests>=2.31.0`);
-
-    execSync(`"${venvPython}" -c "import requests"`, { stdio: "ignore" });
-    logger.info("[skills-scanner] ✅ Dependencies installed successfully");
-    return true;
   } catch (err: any) {
-    logger.error(`[skills-scanner] ⚠️  Dependency installation failed: ${err.message}`);
+    logger.error(`[skills-scanner] Dependency installation failed: ${err.message}`);
+    logger.error(`[skills-scanner] Please install manually:`);
+    logger.error(`[skills-scanner]   ${resolvedPython} -m pip install --user requests`);
+    logger.error(`[skills-scanner] Or with sudo:`);
+    logger.error(`[skills-scanner]   sudo ${resolvedPython} -m pip install requests`);
     return false;
   }
 }

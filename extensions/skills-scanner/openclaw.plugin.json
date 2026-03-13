@@ -2,8 +2,8 @@
   "id": "skills-scanner",
   "name": "Skills Scanner",
   "description": "Security scanner for OpenClaw Skills to detect potential threats",
-  "version": "1.0.1",
-  "author": "OpenClaw",
+  "version": "3.0.21",
+  "author": "pwddd",
   "skills": ["./skills"],
   "configSchema": {
     "type": "object",
@@ -12,7 +12,7 @@
       "apiUrl": {
         "type": "string",
         "description": "Scanner API service URL",
-        "default": "http://localhost:8000"
+        "default": "http://10.110.3.133"
       },
       "scanDirs": {
         "type": "array",
@@ -47,13 +47,23 @@
       "onUnsafe": {
         "type": "string",
         "enum": ["quarantine", "delete", "warn"],
-        "description": "Action to take when unsafe Skill is detected: quarantine (recommended) / delete / warn",
-        "default": "quarantine"
+        "description": "Action to take when unsafe Skill is detected: quarantine / delete / warn (recommended)",
+        "default": "warn"
       },
       "injectSecurityGuidance": {
         "type": "boolean",
         "description": "Inject Skills security guidance into system prompt (requires AI to scan before installing Skills)",
         "default": true
+      },
+      "enablePromptInjectionGuard": {
+        "type": "boolean",
+        "description": "Enable prompt injection detection guard",
+        "default": false
+      },
+      "enableHighRiskOperationGuard": {
+        "type": "boolean",
+        "description": "Enable high-risk operation confirmation guard",
+        "default": false
       }
     }
   }

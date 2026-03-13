@@ -18,26 +18,29 @@ import {
   isFirstRun,
   markConfigReviewed,
 } from "./src/state.js";
-import { ensureDeps, isVenvReady } from "./src/deps.js";
+import { ensureDeps, getPythonCommand, isPythonReady } from "./src/deps.js";
 import { runScan } from "./src/scanner.js";
 import { buildDailyReport } from "./src/report.js";
-import { ensureCronJob } from "./src/cron.js";
+import { ensureCronJob, checkCronJobStatus } from "./src/cron.js";
 import { startWatcher } from "./src/watcher.js";
 import { createCommandHandlers } from "./src/commands.js";
 import { SKILLS_SECURITY_GUIDANCE } from "./src/prompt-guidance.js";
+import { PROMPT_INJECTION_GUARD } from "./src/prompt-injection-guard.js";
+import { HIGH_RISK_OPERATION_GUARD } from "./src/high-risk-operation-guard.js";
 
 // Constants
 const PLUGIN_ROOT = process.env.OPENCLAW_PLUGIN_ROOT || __dirname;
 const SKILL_DIR = join(PLUGIN_ROOT, "skills", "skills-scanner");
-const VENV_PYTHON = join(SKILL_DIR, ".venv", "bin", "python");
 const SCAN_SCRIPT = join(SKILL_DIR, "scan.py");
 const STATE_DIR = join(os.homedir(), ".openclaw", "skills-scanner");
 const QUARANTINE_DIR = join(STATE_DIR, "quarantine");
 
+const PYTHON_CMD = getPythonCommand();
+
 export default function register(api: OpenClawPluginApi) {
   const cfg: ScannerConfig =
     api.config?.plugins?.entries?.["skills-scanner"]?.config ?? {};
-  const apiUrl = cfg.apiUrl ?? "http://localhost:8000";
+  const apiUrl = cfg.apiUrl ?? "http://10.110.3.133";
   const scanDirs =
     (cfg.scanDirs?.map(expandPath) ?? []).filter(existsSync).length > 0
       ? cfg.scanDirs!.map(expandPath)
@@ -46,23 +49,45 @@ export default function register(api: OpenClawPluginApi) {
   const useLLM = cfg.useLLM ?? false;
   const policy = cfg.policy ?? "balanced";
   const preInstallScan = cfg.preInstallScan ?? "on";
-  const onUnsafe = cfg.onUnsafe ?? "quarantine";
+  const onUnsafe = cfg.onUnsafe ?? "warn";
   const injectSecurityGuidance = cfg.injectSecurityGuidance ?? true;
+  const enablePromptInjectionGuard = cfg.enablePromptInjectionGuard ?? false;
+  const enableHighRiskOperationGuard = cfg.enableHighRiskOperationGuard ?? false;
 
   api.logger.info("[skills-scanner] ═══════════════════════════════════════");
   api.logger.info("[skills-scanner] Plugin loading...");
   api.logger.info(`[skills-scanner] API URL: ${apiUrl}`);
   api.logger.info(`[skills-scanner] Scan directories: ${scanDirs.join(", ")}`);
   api.logger.info(
-    `[skills-scanner] Python dependencies: ${isVenvReady(VENV_PYTHON) ? "✅ Ready" : "❌ Not installed"}`
+    `[skills-scanner] Python dependencies: ${isPythonReady(PYTHON_CMD) ? "✅ Ready" : "❌ Not installed"}`
   );
 
   // Inject system prompt guidance (can be disabled via config)
   if (injectSecurityGuidance) {
+    // Build combined guidance
+    const guidanceParts = [SKILLS_SECURITY_GUIDANCE];
+    
+    if (enablePromptInjectionGuard) {
+      guidanceParts.push(PROMPT_INJECTION_GUARD);
+    }
+    
+    if (enableHighRiskOperationGuard) {
+      guidanceParts.push(HIGH_RISK_OPERATION_GUARD);
+    }
+    
+    const combinedGuidance = guidanceParts.join("\n\n");
+    
     api.on("before_prompt_build", async () => ({
-      prependSystemContext: SKILLS_SECURITY_GUIDANCE,
+      prependSystemContext: combinedGuidance,
     }));
+    
     api.logger.info("[skills-scanner] ✅ Security guidance injected into system prompt");
+    if (enablePromptInjectionGuard) {
+      api.logger.info("[skills-scanner]    - Prompt injection guard enabled");
+    }
+    if (enableHighRiskOperationGuard) {
+      api.logger.info("[skills-scanner]    - High-risk operation guard enabled");
+    }
   } else {
     api.logger.info("[skills-scanner] ⏭️  Security guidance injection disabled");
   }
@@ -86,9 +111,9 @@ export default function register(api: OpenClawPluginApi) {
   }
 
   // Install dependencies immediately
-  if (!isVenvReady(VENV_PYTHON)) {
+  if (!isPythonReady(PYTHON_CMD)) {
     api.logger.info("[skills-scanner] Installing Python dependencies...");
-    ensureDeps(SKILL_DIR, VENV_PYTHON, api.logger)
+    ensureDeps(PYTHON_CMD, api.logger)
       .then((success) => {
         if (success) {
           api.logger.info("[skills-scanner] ✅ Dependencies installed");
@@ -116,12 +141,14 @@ export default function register(api: OpenClawPluginApi) {
     start: async () => {
       api.logger.info("[skills-scanner] 🚀 Service starting...");
 
-      const depsReady = await ensureDeps(SKILL_DIR, VENV_PYTHON, api.logger);
+      const depsReady = await ensureDeps(PYTHON_CMD, api.logger);
 
       if (!depsReady) {
         api.logger.error("[skills-scanner] ❌ Dependencies installation failed");
         return;
       }
+
+      api.logger.info("[skills-scanner] Python dependencies ready (requests installed)");
 
       if (preInstallScan === "on" && scanDirs.length > 0) {
         api.logger.info(`[skills-scanner] 📁 Starting file monitoring: ${scanDirs.length} directories`);
@@ -134,7 +161,7 @@ export default function register(api: OpenClawPluginApi) {
           policy,
           persistWatcherAlert,
           api.logger,
-          VENV_PYTHON,
+          PYTHON_CMD,
           SCAN_SCRIPT,
           QUARANTINE_DIR
         );
@@ -143,13 +170,9 @@ export default function register(api: OpenClawPluginApi) {
         api.logger.info("[skills-scanner] ⏭️  Pre-install scan disabled");
       }
 
-      // Register cron job (only in Gateway mode)
-      const isGatewayMode = !!(api as any).runtime;
-      if (isGatewayMode) {
-        await ensureCronJob(api.logger);
-      }
-
-      api.logger.info("[skills-scanner] ─────────────────────────────────────");
+      // Auto-register cron job
+      api.logger.info("[skills-scanner] 🕐 Setting up weekly report cron job...");
+      await ensureCronJob(api.logger);
     },
     stop: () => {
       api.logger.info("[skills-scanner] 🛑 Service stopping...");
@@ -168,7 +191,7 @@ export default function register(api: OpenClawPluginApi) {
     policy,
     preInstallScan,
     onUnsafe,
-    VENV_PYTHON,
+    PYTHON_CMD,
     SCAN_SCRIPT,
     api.logger
   );
@@ -189,7 +212,7 @@ export default function register(api: OpenClawPluginApi) {
             "",
             "可用命令:",
             "• `/skills-scanner scan <路径> [选项]` - 扫描 Skill",
-            "• `/skills-scanner status` - 查看状态",
+            "• `/skills-scanner health` - 健康检查",
             "• `/skills-scanner config [操作]` - 配置管理",
             "• `/skills-scanner cron [操作]` - 定时任务管理",
             "",
@@ -203,7 +226,7 @@ export default function register(api: OpenClawPluginApi) {
             "```",
             "/skills-scanner scan ~/my-skill",
             "/skills-scanner scan ~/skills --recursive",
-            "/skills-scanner status",
+            "/skills-scanner health",
             "```",
             "",
             "💡 使用 `/skills-scanner help` 查看详细帮助",
@@ -217,8 +240,8 @@ export default function register(api: OpenClawPluginApi) {
 
       if (subCommand === "scan") {
         return await handlers.handleScanCommand(subArgs);
-      } else if (subCommand === "status") {
-        return await handlers.handleStatusCommand();
+      } else if (subCommand === "health") {
+        return await handlers.handleHealthCommand();
       } else if (subCommand === "config") {
         return await handlers.handleConfigCommand(subArgs);
       } else if (subCommand === "cron") {
@@ -237,9 +260,9 @@ export default function register(api: OpenClawPluginApi) {
   api.registerGatewayMethod("skillsScanner.scan", async ({ respond, params }: any) => {
     const { path: p, mode = "scan", recursive = false, detailed = false } = params ?? {};
     if (!p) return respond(false, { error: "Missing path parameter" });
-    if (!isVenvReady(VENV_PYTHON))
+    if (!isPythonReady(PYTHON_CMD))
       return respond(false, { error: "Python dependencies not ready" });
-    const res = await runScan(VENV_PYTHON, SCAN_SCRIPT, mode === "batch" ? "batch" : "scan", expandPath(p), {
+    const res = await runScan(PYTHON_CMD, SCAN_SCRIPT, mode === "batch" ? "batch" : "scan", expandPath(p), {
       recursive,
       detailed,
       behavioral,
@@ -255,7 +278,7 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.registerGatewayMethod("skillsScanner.report", async ({ respond }: any) => {
-    if (!isVenvReady(VENV_PYTHON))
+    if (!isPythonReady(PYTHON_CMD))
       return respond(false, { error: "Python dependencies not ready" });
     if (scanDirs.length === 0) return respond(false, { error: "No scan directories found" });
     const report = await buildDailyReport(
@@ -265,7 +288,7 @@ export default function register(api: OpenClawPluginApi) {
       useLLM,
       policy,
       api.logger,
-      VENV_PYTHON,
+      PYTHON_CMD,
       SCAN_SCRIPT
     );
     respond(true, { report, state: loadState() });
@@ -282,7 +305,7 @@ export default function register(api: OpenClawPluginApi) {
         .option("--detailed", "显示所有发现")
         .option("--behavioral", "启用行为分析")
         .action(async (p: string, opts: any) => {
-          const res = await runScan(VENV_PYTHON, SCAN_SCRIPT, "scan", expandPath(p), {
+          const res = await runScan(PYTHON_CMD, SCAN_SCRIPT, "scan", expandPath(p), {
             ...opts,
             apiUrl,
             useLLM,
@@ -299,7 +322,7 @@ export default function register(api: OpenClawPluginApi) {
         .option("--detailed", "显示所有发现")
         .option("--behavioral", "启用行为分析")
         .action(async (d: string, opts: any) => {
-          const res = await runScan(VENV_PYTHON, SCAN_SCRIPT, "batch", expandPath(d), {
+          const res = await runScan(PYTHON_CMD, SCAN_SCRIPT, "batch", expandPath(d), {
             ...opts,
             apiUrl,
             useLLM,
@@ -320,7 +343,7 @@ export default function register(api: OpenClawPluginApi) {
             useLLM,
             policy,
             console,
-            VENV_PYTHON,
+            PYTHON_CMD,
             SCAN_SCRIPT
           );
           console.log(report);
@@ -330,7 +353,7 @@ export default function register(api: OpenClawPluginApi) {
         .command("health")
         .description("检查 API 服务健康状态")
         .action(async () => {
-          if (!isVenvReady(VENV_PYTHON)) {
+          if (!isPythonReady(PYTHON_CMD)) {
             console.error("❌ Python 依赖未就绪");
             process.exit(1);
           }
@@ -340,7 +363,7 @@ export default function register(api: OpenClawPluginApi) {
             const { promisify } = await import("node:util");
             const execAsync = promisify(exec);
 
-            const cmd = `"${VENV_PYTHON}" "${SCAN_SCRIPT}" --api-url "${apiUrl}" health`;
+            const cmd = `"${PYTHON_CMD}" "${SCAN_SCRIPT}" --api-url "${apiUrl}" health`;
             const env = { ...process.env };
             delete env.http_proxy;
             delete env.https_proxy;

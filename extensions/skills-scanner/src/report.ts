@@ -15,7 +15,7 @@ export async function buildDailyReport(
   useLLM: boolean,
   policy: string,
   logger: any,
-  venvPython: string,
+  pythonCmd: string | null,
   scanScript: string
 ): Promise<string> {
   const now = new Date();
@@ -41,7 +41,7 @@ export async function buildDailyReport(
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
     const tmpJson = join(STATE_DIR, `tmp-${Date.now()}.json`);
-    await runScan(venvPython, scanScript, "batch", dir, {
+    await runScan(pythonCmd, scanScript, "batch", dir, {
       behavioral,
       recursive: true,
       jsonOut: tmpJson,

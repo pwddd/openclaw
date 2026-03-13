@@ -17,7 +17,7 @@ export async function handleNewSkill(
   policy: string,
   notifyFn: (msg: string) => void,
   logger: any,
-  venvPython: string,
+  pythonCmd: string | null,
   scanScript: string,
   quarantineDir: string
 ): Promise<void> {
@@ -27,7 +27,7 @@ export async function handleNewSkill(
   logger.info(`[skills-scanner] 🔍 检测到新 Skill，开始安装前扫描: ${name}`);
   notifyFn(`🔍 检测到新 Skill \`${name}\`，正在安全扫描...`);
 
-  const res = await runScan(venvPython, scanScript, "scan", skillPath, {
+  const res = await runScan(pythonCmd, scanScript, "scan", skillPath, {
     behavioral,
     detailed: true,
     apiUrl,
@@ -77,7 +77,7 @@ export function startWatcher(
   policy: string,
   notifyFn: (msg: string) => void,
   logger: any,
-  venvPython: string,
+  pythonCmd: string | null,
   scanScript: string,
   quarantineDir: string
 ): () => void {
@@ -105,12 +105,12 @@ export function startWatcher(
             apiUrl,
             useLLM,
             policy,
-            notifyFn,
-            logger,
-            venvPython,
-            scanScript,
-            quarantineDir
-          );
+          notifyFn,
+          logger,
+          pythonCmd,
+          scanScript,
+          quarantineDir
+        );
         }, 500)
       );
     });

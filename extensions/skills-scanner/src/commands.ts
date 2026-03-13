@@ -9,9 +9,9 @@ import { exec } from "node:child_process";
 import { runScan } from "./scanner.js";
 import { buildDailyReport } from "./report.js";
 import { loadState, saveState, expandPath } from "./state.js";
-import { isVenvReady } from "./deps.js";
+import { isPythonReady } from "./deps.js";
 import { generateConfigGuide } from "./config.js";
-import { ensureCronJob } from "./cron.js";
+import { ensureCronJob, getOpenClawCommand } from "./cron.js";
 import type { ScannerConfig } from "./types.js";
 
 const execAsync = promisify(exec);
@@ -25,38 +25,51 @@ export function createCommandHandlers(
   policy: string,
   preInstallScan: string,
   onUnsafe: string,
-  venvPython: string,
+  pythonCmd: string | null,
   scanScript: string,
   logger: any
 ) {
   async function handleScanCommand(args: string): Promise<any> {
     if (!args) {
       return {
-        text: "用法：`/skills-scanner scan <路径> [--detailed] [--behavioral] [--recursive] [--report]`",
+        text: "用法：`/skills-scanner scan <路径> [--detailed] [--behavioral] [--recursive] [--report]`\n或：`/skills-scanner scan clawhub <URL> [--detailed] [--behavioral]`",
       };
     }
 
-    if (!isVenvReady(venvPython)) {
-      return { text: "⏳ Python 依赖尚未就绪，请稍后重试或查看日志" };
+    if (!isPythonReady(pythonCmd)) {
+      return { text: "⚠️ Python 依赖尚未就绪，请稍后重试或查看日志" };
     }
 
     const parts = args.split(/\s+/);
+
+    // Check if this is a ClawHub scan
+    if (parts[0] === "clawhub") {
+      const clawhubUrl = parts.find((p) => p.startsWith("https://clawhub.ai/"));
+      if (!clawhubUrl) {
+        return { text: "⚠️ 请提供有效的 ClawHub URL (例如: https://clawhub.ai/username/project)" };
+      }
+
+      const detailed = parts.includes("--detailed");
+      const useBehav = parts.includes("--behavioral") || behavioral;
+
+      const res = await runScan(pythonCmd, scanScript, "clawhub", clawhubUrl, {
+        detailed,
+        behavioral: useBehav,
+        apiUrl,
+        useLLM,
+        policy,
+      });
+      const icon = res.exitCode === 0 ? "✅" : "❌";
+      return { text: `${icon} ClawHub 扫描完成\n\`\`\`\n${res.output}\n\`\`\`` };
+    }
+
     const targetPath = expandPath(parts.find((p) => !p.startsWith("--")) ?? "");
     const detailed = parts.includes("--detailed");
     const useBehav = parts.includes("--behavioral") || behavioral;
     const recursive = parts.includes("--recursive");
     const isReport = parts.includes("--report");
 
-    if (!targetPath) {
-      return { text: "❌ 请指定扫描路径" };
-    }
-
-    if (!existsSync(targetPath)) {
-      return { text: `❌ 路径不存在: ${targetPath}` };
-    }
-
-    const isSingleSkill = existsSync(join(targetPath, "SKILL.md"));
-
+    // Report mode: use configured scanDirs
     if (isReport) {
       if (scanDirs.length === 0) {
         return { text: "⚠️ 未找到可扫描目录，请检查配置" };
@@ -68,12 +81,25 @@ export function createCommandHandlers(
         useLLM,
         policy,
         logger,
-        venvPython,
+        pythonCmd,
         scanScript
       );
       return { text: report };
-    } else if (isSingleSkill) {
-      const res = await runScan(venvPython, scanScript, "scan", targetPath, {
+    }
+
+    // Regular scan mode: require path
+    if (!targetPath) {
+      return { text: "⚠️ 请指定扫描路径" };
+    }
+
+    if (!existsSync(targetPath)) {
+      return { text: `⚠️ 路径不存在: ${targetPath}` };
+    }
+
+    const isSingleSkill = existsSync(join(targetPath, "SKILL.md"));
+
+    if (isSingleSkill) {
+      const res = await runScan(pythonCmd, scanScript, "scan", targetPath, {
         detailed,
         behavioral: useBehav,
         apiUrl,
@@ -83,7 +109,7 @@ export function createCommandHandlers(
       const icon = res.exitCode === 0 ? "✅" : "❌";
       return { text: `${icon} 扫描完成\n\`\`\`\n${res.output}\n\`\`\`` };
     } else {
-      const res = await runScan(venvPython, scanScript, "batch", targetPath, {
+      const res = await runScan(pythonCmd, scanScript, "batch", targetPath, {
         recursive,
         detailed,
         behavioral: useBehav,
@@ -96,26 +122,26 @@ export function createCommandHandlers(
     }
   }
 
-  async function handleStatusCommand(): Promise<any> {
+  async function handleHealthCommand(): Promise<any> {
     const state = loadState() as any;
     const alerts: string[] = state.pendingAlerts ?? [];
 
     const lines = [
-      "📋 *Skills Scanner 状态*",
+      "✅ *Skills Scanner 状态*",
       `API 地址: ${apiUrl}`,
-      `Python 依赖: ${isVenvReady(venvPython) ? "✅ 就绪" : "❌ 未就绪"}`,
-      `安装前扫描: ${preInstallScan === "on" ? `✅ 监听中 (${onUnsafe})` : "❌ 已禁用"}`,
+      `Python 依赖: ${isPythonReady(pythonCmd) ? "✅ 就绪" : "❌ 未就绪"}`,
+      `安装前扫描: ${preInstallScan === "on" ? `✅ 监听中 (${onUnsafe})` : "⏭️ 已禁用"}`,
       `扫描策略: ${policy}`,
       `LLM 分析: ${useLLM ? "✅ 启用" : "❌ 禁用"}`,
       `行为分析: ${behavioral ? "✅ 启用" : "❌ 禁用"}`,
       `上次扫描: ${state.lastScanAt ? new Date(state.lastScanAt).toLocaleString("zh-CN") : "从未"}`,
-      `扫描目录:\n${scanDirs.map((d) => `  • ${d}`).join("\n")}`,
+      `扫描目录:\n${scanDirs.map((d) => `  📁 ${d}`).join("\n")}`,
     ];
 
-    if (isVenvReady(venvPython)) {
-      lines.push("", "🔍 *API 服务检查*");
+    if (isPythonReady(pythonCmd)) {
+      lines.push("", "✅ *API 服务检查*");
       try {
-        const cmd = `"${venvPython}" "${scanScript}" --api-url "${apiUrl}" health`;
+        const cmd = `"${pythonCmd}" "${scanScript}" --api-url "${apiUrl}" health`;
         const env = { ...process.env };
         delete env.http_proxy;
         delete env.https_proxy;
@@ -127,7 +153,7 @@ export function createCommandHandlers(
         const { stdout, stderr } = await execAsync(cmd, { timeout: 5000, env });
         const output = (stdout + stderr).trim();
 
-        if (output.includes("✓") || output.includes("OK")) {
+        if (output.includes("✅") || output.includes("✓") || output.includes("OK")) {
           lines.push(`API 服务: ✅ 正常`);
           const jsonMatch = output.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
@@ -139,26 +165,26 @@ export function createCommandHandlers(
             } catch {}
           }
         } else {
-          lines.push(`API 服务: ❌ 不可用`);
+          lines.push(`API 服务: ⚠️ 不可用`);
         }
       } catch (err: any) {
-        lines.push(`API 服务: ❌ 连接失败`);
+        lines.push(`API 服务: ⚠️ 连接失败`);
         lines.push(`错误: ${err.message}`);
       }
     }
 
     if (alerts.length > 0) {
-      lines.push("", `🔔 *待查告警 (${alerts.length} 条):*`);
+      lines.push("", `⚠️ *待查告警 (${alerts.length} 条):*`);
       alerts.slice(-5).forEach((a) => lines.push(`  ${a}`));
       saveState({ ...state, pendingAlerts: [] });
     }
 
-    lines.push("", "🕐 *定时任务*");
+    lines.push("", "✅ *定时任务*");
     if (state.cronJobId && state.cronJobId !== "manual-created") {
       lines.push(`状态: ✅ 已注册 (${state.cronJobId})`);
     } else {
       lines.push("状态: ❌ 未注册");
-      lines.push("💡 使用 `/skills-scanner cron register` 注册");
+      lines.push("ℹ️ 使用 `/skills-scanner cron register` 注册");
     }
 
     return { text: lines.join("\n") };
@@ -194,11 +220,12 @@ export function createCommandHandlers(
     const action = args.trim().toLowerCase() || "status";
     const state = loadState() as any;
 
-    if (action === "register") {
+    if (action === "setup" || action === "register") {
       const oldJobId = state.cronJobId;
       if (oldJobId && oldJobId !== "manual-created") {
+        const openclawCmd = getOpenClawCommand();
         try {
-          execSync(`openclaw cron remove ${oldJobId}`, { encoding: "utf-8", timeout: 5000 });
+          execSync(`${openclawCmd} cron remove ${oldJobId}`, { encoding: "utf-8", timeout: 5000 });
         } catch {}
       }
 
@@ -209,32 +236,33 @@ export function createCommandHandlers(
       if (newState.cronJobId) {
         return { text: `✅ 定时任务注册成功\n任务 ID: ${newState.cronJobId}` };
       } else {
-        return { text: "❌ 定时任务注册失败，请查看日志" };
+        return { text: "⚠️ 定时任务注册失败，请查看日志" };
       }
     } else if (action === "unregister") {
       if (!state.cronJobId) {
-        return { text: "⚠️ 未找到已注册的定时任务" };
+        return { text: "ℹ️ 未找到已注册的定时任务" };
       }
 
+      const openclawCmd = getOpenClawCommand();
       try {
-        execSync(`openclaw cron remove ${state.cronJobId}`, {
+        execSync(`${openclawCmd} cron remove ${state.cronJobId}`, {
           encoding: "utf-8",
           timeout: 5000,
         });
         saveState({ ...state, cronJobId: undefined });
         return { text: `✅ 定时任务已删除: ${state.cronJobId}` };
       } catch (err: any) {
-        return { text: `❌ 删除失败: ${err.message}` };
+        return { text: `⚠️ 删除失败: ${err.message}` };
       }
     } else {
-      const lines = ["🕐 *定时任务状态*"];
+      const lines = ["✅ *定时任务状态*"];
       if (state.cronJobId && state.cronJobId !== "manual-created") {
         lines.push(`任务 ID: ${state.cronJobId}`);
         lines.push(`执行时间: 每天 08:00 (Asia/Shanghai)`);
         lines.push("状态: ✅ 已注册");
       } else {
         lines.push("状态: ❌ 未注册");
-        lines.push("", "💡 使用 `/skills-scanner cron register` 注册");
+        lines.push("", "ℹ️ 使用 `/skills-scanner cron setup` 注册");
       }
       return { text: lines.join("\n") };
     }
@@ -242,10 +270,11 @@ export function createCommandHandlers(
 
   function getHelpText(): string {
     return [
-      "🔍 *Skills Scanner - 帮助*",
+      "✅ *Skills Scanner - 帮助*",
       "",
       "═══ 扫描命令 ═══",
       "`/skills-scanner scan <路径> [选项]`",
+      "`/skills-scanner scan clawhub <URL> [选项]`",
       "",
       "选项:",
       "• `--detailed` - 显示详细发现",
@@ -258,10 +287,12 @@ export function createCommandHandlers(
       "/skills-scanner scan ~/.openclaw/skills/my-skill",
       "/skills-scanner scan ~/.openclaw/skills --recursive",
       "/skills-scanner scan ~/.openclaw/skills --report",
+      "/skills-scanner scan clawhub https://clawhub.ai/username/project",
+      "/skills-scanner scan clawhub https://clawhub.ai/username/project --detailed",
       "```",
       "",
       "═══ 其他命令 ═══",
-      "• `/skills-scanner status` - 查看状态",
+      "• `/skills-scanner health` - 健康检查",
       "• `/skills-scanner config [show|reset]` - 配置管理",
       "• `/skills-scanner cron [register|unregister|status]` - 定时任务管理",
     ].join("\n");
@@ -269,7 +300,7 @@ export function createCommandHandlers(
 
   return {
     handleScanCommand,
-    handleStatusCommand,
+    handleHealthCommand,
     handleConfigCommand,
     handleCronCommand,
     getHelpText,
